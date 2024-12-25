@@ -2,10 +2,13 @@
     [Parameter()]
     [switch]$keeper,
     [switch]$web,
+    [switch]$nvr,
     [switch]$dk,
     [switch]$dw,
+    [switch]$dn,
     [switch]$rw,
     [switch]$rk,
+    [switch]$rn,
     [switch]$help,
     [switch]$publish,              # 是否发布镜像
     [string]$registry = "",        # 镜像仓库地址，默认为空
@@ -15,15 +18,19 @@
 $APP_KEEPER_NAME = "ak-keeper"
 $APP_WEB_NAME = "ak-web"
 $BASE_IMAGE_NAME = "zlmediakit-dotnet"
+$APP_NVR_NAME = "akstream-nvr"
 
 function Show-Usage {
     Write-Host "Usage: .\deploy.ps1"
     Write-Host " -keeper   : install keeper"
     Write-Host " -web      : install Web"
+    Write-Host " -nvr      : install NVR"
     Write-Host " -dk       : deploy keeper"
     Write-Host " -dw       : deploy Web"
+    Write-Host " -dn       : deploy NVR"
     Write-Host " -rw       : run Web"
     Write-Host " -rk       : run keeper"
+    Write-Host " -rn       : run NVR"
     Write-Host " -help     : show this help"
     Write-Host " -publish  : publish images (.\deploy.ps1 -keeper -web -publish -registry ""xxx"" -version ""1.0.0"")"
     Write-Host " -registry : registry address (default: empty)"
@@ -31,7 +38,7 @@ function Show-Usage {
     exit 1
 }
 
-if ($args.Count -eq 0 -and -not ($keeper -or $web -or $dk -or $dw -or $rw -or $rk -or $help)) {
+if ($args.Count -eq 0 -and -not ($keeper -or $web -or $nvr -or $dk -or $dw -or $dn -or $rw -or $rk -or $rn -or $help)) {
     Show-Usage
 }
 
@@ -84,9 +91,14 @@ if ($publish) {
         Write-Host "Publishing web image..."
         Publish-Image -imageName $APP_WEB_NAME -registry $registry -version $version
     }
-    # 发布基础镜像
-    Write-Host "Publishing base image..."
-    Publish-Image -imageName $BASE_IMAGE_NAME -registry $registry -version $version
+
+    if ($nvr -or $dn -or $rn) {
+        Write-Host "Publishing NVR image..."
+        Publish-Image -imageName $APP_NVR_NAME -registry $registry -version $version
+    }
+
+    # Write-Host "Publishing base image..."
+    # Publish-Image -imageName $BASE_IMAGE_NAME -registry $registry -version $version
 }
 
 # 添加一个用于从容器复制配置文件的函数
@@ -254,6 +266,34 @@ if ($rw) {
         --name=$APP_WEB_NAME `
         --restart=always `
         -d $APP_WEB_NAME
+}
+
+if ($nvr) {
+    Write-Host "You have chosen to install NVR"
+    docker build -f Dockerfile-NVR -t $APP_NVR_NAME .
+}
+
+if ($dn) {
+    Write-Host "You have chosen to deploy NVR"
+    docker ps | Where-Object { $_ -match $APP_NVR_NAME } | ForEach-Object { docker stop ($_ -split "\s+")[0] }
+    docker ps -a | Where-Object { $_ -match $APP_NVR_NAME } | ForEach-Object { docker rm ($_ -split "\s+")[0] }
+
+    docker run -p 3000:3000 `
+        -v "$PWD/Docker/apiconfig.js:/app/src/config/apiconfig.js" `
+        -v "$PWD/Docker/env-config.js:/app/public/env-config.js" `
+        --name=$APP_NVR_NAME `
+        --restart=always `
+        -d $APP_NVR_NAME
+}
+
+if ($rn) {
+    Write-Host "You have chosen to run NVR"
+    docker run -it --rm -p 3000:3000 `
+        -v "$PWD/Docker/apiconfig.js:/app/src/config/apiconfig.js" `
+        -v "$PWD/Docker/env-config.js:/app/public/env-config.js" `
+        --name=$APP_NVR_NAME `
+        $APP_NVR_NAME `
+        bash
 }
 
 Write-Host "Successful script execution, best wishes for you"

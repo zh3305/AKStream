@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -q -y --no-install-recommends \
     procps \
     net-tools \
     # 安装libcurl4-openssl-dev libssl-dev 修复WebRequest.Create 请求异常
-     libcurl4-openssl-dev libssl-dev \ 
+     libcurl4-openssl-dev libssl-dev curl \ 
     && rm -rf /var/lib/apt/lists/*
 
 RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
